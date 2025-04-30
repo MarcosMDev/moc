@@ -1,6 +1,7 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
+import { useState, useCallback } from "react";
+import { useOrganograma } from "./organograma-provider";
 import {
   Card,
   CardContent,
@@ -8,20 +9,21 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { useMobile } from "@/hooks/use-mobile";
-import type { Activity, Department } from "@/lib/types";
-import { Download, FileText, RotateCcw, ZoomIn, ZoomOut } from "lucide-react";
-import { useCallback, useState } from "react";
+  FileText,
+  Download,
+  ZoomIn,
+  ZoomOut,
+  RotateCcw,
+  PlusCircle,
+  FolderOpen,
+} from "lucide-react";
 import Tree from "react-d3-tree";
-import { useOrganograma } from "./organograma-provider";
+import type { Department } from "@/lib/types";
+import { useMobile } from "@/hooks/use-mobile";
+import AddItemDialog from "./add-item-dialog";
+import ActivitiesDialog from "./activities-dialog";
 
 // Types for react-d3-tree
 interface TreeNode {
@@ -33,14 +35,24 @@ interface TreeNode {
 }
 
 export default function OrganogramaView() {
-  const { departments, saveData, getCEO } = useOrganograma();
-  const [selectedActivity, setSelectedActivity] = useState<{
-    activity: Activity | null;
-    departmentName: string;
-  }>({ activity: null, departmentName: "" });
+  const { departments, saveData, getCEO, findDepartmentById } =
+    useOrganograma();
   const [translate, setTranslate] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(0.8);
   const [isVertical, setIsVertical] = useState(true);
+  const isMobile = useMobile();
+
+  // Dialog states
+  const [addItemDialogOpen, setAddItemDialogOpen] = useState(false);
+  const [activitiesDialogOpen, setActivitiesDialogOpen] = useState(false);
+  const [selectedDepartment, setSelectedDepartment] =
+    useState<Department | null>(null);
+  const [addItemInitialTab, setAddItemInitialTab] = useState<
+    "DIRECTORATE" | "MANAGEMENT" | "SECTOR" | "ACTIVITY"
+  >("DIRECTORATE");
+  const [preSelectedParentId, setPreSelectedParentId] = useState<string | null>(
+    null
+  );
 
   // Convert organization chart data to the format expected by react-d3-tree
   const transformDataToTreeFormat = useCallback((): TreeNode => {
@@ -55,20 +67,20 @@ export default function OrganogramaView() {
         });
       }
 
-      // Add activities
-      department.activities.forEach((activity) => {
+      // Add activities node if there are activities
+      if (department.activities.length > 0 && department.type === "SECTOR") {
         children.push({
-          name: activity.name,
+          name: "Atividades",
           attributes: {
-            tipo: "ATIVIDADE",
-            descricao: activity.description || "",
+            tipo: "ACTIVITIES_GROUP",
+            count: `${department.activities.length} atividade(s)`,
           },
           nodeData: {
-            activity,
-            departmentName: department.name,
+            departmentId: department.id,
+            isActivitiesNode: true,
           },
         });
-      });
+      }
 
       return {
         name: department.name,
@@ -77,6 +89,10 @@ export default function OrganogramaView() {
           descricao: department.description || "",
         },
         children: children.length > 0 ? children : undefined,
+        nodeData: {
+          departmentId: department.id,
+          isActivitiesNode: false,
+        },
       };
     };
 
@@ -84,6 +100,31 @@ export default function OrganogramaView() {
     const ceo = getCEO();
     return transformDepartment(ceo);
   }, [departments, getCEO]);
+
+  // Handle node click
+  const handleNodeClick = (nodeDatum: any) => {
+    console.log("Node clicked:", nodeDatum);
+
+    if (nodeDatum.nodeData?.isActivitiesNode) {
+      // Se é um nó de atividades, buscar o departamento pelo ID
+      const departmentId = nodeDatum.nodeData.departmentId;
+      const department = findDepartmentById(departmentId);
+
+      console.log("Department found:", department);
+
+      if (department) {
+        setSelectedDepartment(department);
+        setActivitiesDialogOpen(true);
+      }
+    }
+  };
+
+  // Handle adding activity from activities dialog
+  const handleAddActivity = (departmentId: string) => {
+    setPreSelectedParentId(departmentId);
+    setAddItemInitialTab("ACTIVITY");
+    setAddItemDialogOpen(true);
+  };
 
   // Custom component for tree nodes
   const renderCustomNodeElement = ({ nodeDatum, toggleNode }: any) => {
@@ -95,7 +136,7 @@ export default function OrganogramaView() {
         case "CEO":
           return {
             container:
-              "bg-gradient-to-r from-purple-500 to-purple-700 border-purple-800",
+              "bg-gradient-to-r from-purple-700 to-purple-900 border-purple-950",
             text: "text-white font-bold",
           };
         case "DIRECTORATE":
@@ -116,10 +157,10 @@ export default function OrganogramaView() {
               "bg-gradient-to-r from-yellow-500 to-yellow-600 border-yellow-700",
             text: "text-yellow-950",
           };
-        case "ATIVIDADE":
+        case "ACTIVITIES_GROUP":
           return {
             container:
-              "bg-gradient-to-r from-amber-400 to-amber-500 border-amber-600",
+              "bg-gradient-to-r from-gray-100 to-gray-200 border-gray-300",
             text: "text-amber-950",
           };
         default:
@@ -131,7 +172,7 @@ export default function OrganogramaView() {
     };
 
     const styles = getNodeStyles();
-    const isActivity = nodeType === "ATIVIDADE";
+    const isActivitiesNode = nodeType === "ACTIVITIES_GROUP";
     const isCEO = nodeType === "CEO";
 
     return (
@@ -143,95 +184,44 @@ export default function OrganogramaView() {
           y={isCEO ? -30 : -25}
           style={{ overflow: "visible" }}
         >
-          {isActivity ? (
-            <Dialog>
-              <DialogTrigger asChild>
-                <div
-                  className={`h-full w-full rounded-md border-2 shadow-md px-2 py-1 cursor-pointer transition-all hover:shadow-lg ${styles.container}`}
-                  onClick={() => {
-                    if (nodeDatum.nodeData) {
-                      setSelectedActivity(nodeDatum.nodeData);
-                    }
-                  }}
-                >
-                  <div className={`text-xs truncate ${styles.text}`}>
-                    {nodeDatum.name}
-                  </div>
-                  {nodeDatum.attributes?.descricao && (
-                    <div className="text-[10px] truncate opacity-80">
-                      {nodeDatum.attributes.descricao.substring(0, 20)}
-                      {nodeDatum.attributes.descricao.length > 20 ? "..." : ""}
-                    </div>
-                  )}
-                </div>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-lg">
-                <DialogHeader>
-                  <DialogTitle>{nodeDatum.name}</DialogTitle>
-                  <DialogDescription>
-                    {nodeDatum.nodeData?.departmentName}
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4 py-4">
-                  <div>
-                    <h4 className="text-sm font-medium mb-1">Descrição:</h4>
-                    <p className="text-sm text-muted-foreground">
-                      {nodeDatum.attributes?.descricao ||
-                        "Sem descrição disponível"}
-                    </p>
-                  </div>
-
-                  {nodeDatum.nodeData?.activity?.flowchartURL && (
-                    <div>
-                      <h4 className="text-sm font-medium mb-2">Fluxograma:</h4>
-                      <div className="border rounded-md overflow-hidden">
-                        <img
-                          src={
-                            nodeDatum.nodeData.activity.flowchartURL ||
-                            "/placeholder.svg"
-                          }
-                          alt={`Fluxograma de ${nodeDatum.name}`}
-                          className="w-full h-auto max-h-[400px] object-contain"
-                          onError={(e) => {
-                            const target = e.target as HTMLImageElement;
-                            target.src =
-                              "/placeholder.svg?height=200&width=400";
-                            target.alt = "Imagem não disponível";
-                          }}
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </DialogContent>
-            </Dialog>
-          ) : (
-            <div
-              className={`h-full w-full rounded-md border-2 shadow-md px-2 py-1 cursor-pointer transition-all hover:shadow-lg ${styles.container}`}
-              onClick={() => toggleNode && toggleNode()}
-            >
-              <div className={`text-xs truncate ${styles.text}`}>
-                {!isCEO && (
-                  <span className="text-[9px] opacity-90 block">
-                    {nodeType === "DIRECTORATE"
-                      ? "DIRETORIA"
-                      : nodeType === "MANAGEMENT"
-                      ? "GERÊNCIA"
-                      : nodeType === "SECTOR"
-                      ? "SETOR"
-                      : ""}
-                  </span>
-                )}
-                {nodeDatum.name}
-              </div>
-              {nodeDatum.attributes?.descricao && (
-                <div className="text-[10px] truncate opacity-80">
-                  {nodeDatum.attributes.descricao.substring(0, 20)}
-                  {nodeDatum.attributes.descricao.length > 20 ? "..." : ""}
-                </div>
+          <div
+            className={`h-full w-full rounded-md border-2 shadow-md px-2 py-1 cursor-pointer transition-all hover:shadow-lg ${styles.container}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (isActivitiesNode) {
+                handleNodeClick(nodeDatum);
+              } else {
+                toggleNode && toggleNode();
+              }
+            }}
+          >
+            <div className={`text-xs truncate ${styles.text}`}>
+              {!isCEO && !isActivitiesNode && (
+                <span className="text-[9px] opacity-90 block">
+                  {nodeType === "DIRECTORATE"
+                    ? "DIRETORIA"
+                    : nodeType === "MANAGEMENT"
+                    ? "GERÊNCIA"
+                    : nodeType === "SECTOR"
+                    ? "SETOR"
+                    : ""}
+                </span>
               )}
+              {nodeDatum.name}
             </div>
-          )}
+            {nodeDatum.attributes?.descricao && !isActivitiesNode && (
+              <div className="text-[10px] truncate opacity-80">
+                {nodeDatum.attributes.descricao.substring(0, 20)}
+                {nodeDatum.attributes.descricao.length > 20 ? "..." : ""}
+              </div>
+            )}
+            {isActivitiesNode && (
+              <div className="text-[10px] flex items-center">
+                <FolderOpen className="h-3 w-3 mr-1" />
+                {nodeDatum.attributes?.count}
+              </div>
+            )}
+          </div>
         </foreignObject>
       </g>
     );
@@ -281,6 +271,11 @@ export default function OrganogramaView() {
     setZoom(0.8);
   };
 
+  const handleAddItem = () => {
+    setPreSelectedParentId(null);
+    setAddItemDialogOpen(true);
+  };
+
   if (departments.length === 0) {
     return (
       <Card>
@@ -288,11 +283,11 @@ export default function OrganogramaView() {
           <FileText className="h-16 w-16 text-muted-foreground mb-4" />
           <h3 className="text-xl font-medium mb-2">Nenhum dado cadastrado</h3>
           <p className="text-muted-foreground text-center max-w-md mb-6">
-            Você ainda não cadastrou nenhum setor no organograma. Vá para a aba
-            de cadastro para começar.
+            Você ainda não cadastrou nenhum setor no organograma.
           </p>
-          <Button variant="outline" onClick={() => window.location.reload()}>
-            Ir para Cadastro
+          <Button onClick={handleAddItem}>
+            <PlusCircle className="mr-2 h-4 w-4" />
+            Adicionar Item
           </Button>
         </CardContent>
       </Card>
@@ -358,6 +353,7 @@ export default function OrganogramaView() {
             <Tree
               data={transformDataToTreeFormat()}
               orientation={isVertical ? "vertical" : "horizontal"}
+              translate={translate}
               zoom={zoom}
               nodeSize={{ x: 180, y: 120 }}
               renderCustomNodeElement={renderCustomNodeElement}
@@ -373,6 +369,33 @@ export default function OrganogramaView() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Botão flutuante único para adicionar itens */}
+      <div className="fixed bottom-8 right-8">
+        <Button
+          onClick={handleAddItem}
+          size="lg"
+          className="h-14 w-14 rounded-full shadow-lg"
+        >
+          <PlusCircle className="h-6 w-6" />
+          <span className="sr-only">Adicionar Item</span>
+        </Button>
+      </div>
+
+      {/* Dialogs */}
+      <AddItemDialog
+        open={addItemDialogOpen}
+        onOpenChange={setAddItemDialogOpen}
+        initialTab={addItemInitialTab}
+        preSelectedParentId={preSelectedParentId ?? undefined}
+      />
+
+      <ActivitiesDialog
+        open={activitiesDialogOpen}
+        onOpenChange={setActivitiesDialogOpen}
+        department={selectedDepartment}
+        onAddActivity={handleAddActivity}
+      />
     </div>
   );
 }

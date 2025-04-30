@@ -9,7 +9,7 @@ export interface Department {
   id: string;
   name: string;
   description?: string;
-  type: "CEO" | "DIRECTORATE" | "MANAGEMENT" | "SECTOR";
+  type: DepartmentType;
   activities: Activity[];
   children: Department[];
   parentId?: string | null;

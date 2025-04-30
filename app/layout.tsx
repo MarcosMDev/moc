@@ -1,9 +1,6 @@
-import type { Metadata } from "next";
+"use client";
+import { OrganogramaProvider } from "@/components/organograma-provider";
 import "./globals.css";
-
-export const metadata: Metadata = {
-  title: "Organograma Hierárquico",
-};
 
 export default function RootLayout({
   children,
@@ -11,8 +8,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="pt-br" className="dark">
-      <body>{children}</body>
+    <html lang="pt-br">
+      <OrganogramaProvider>
+        <body>{children}</body>
+      </OrganogramaProvider>
     </html>
   );
 }

@@ -5,6 +5,7 @@ import { createContext, useContext, useEffect, useState } from "react";
 import type { Department, Activity, DepartmentType } from "@/lib/types";
 import { useToast } from "@/components/ui/use-toast";
 import { v4 as uuidv4 } from "uuid";
+import { departmentTypeLabel } from "@/lib/types";
 
 type OrgChartContextType = {
   departments: Department[];
@@ -17,6 +18,8 @@ type OrgChartContextType = {
   saveData: () => void;
   findDepartmentById: (id: string) => Department | null;
   findDepartmentPath: (id: string) => Department[];
+  findActivityById: (id: string) => Activity | null;
+  findDepartmentByActivityId: (activityId: string) => Department | null;
   listAllDepartments: () => {
     id: string;
     name: string;
@@ -36,13 +39,6 @@ const OrgChartContext = createContext<OrgChartContextType | undefined>(
 // Fixed ID for CEO to make references easier
 const CEO_ID = "ceo-root-node";
 
-const departmentTypeLabel: { [key in DepartmentType]: string } = {
-  CEO: "CEO",
-  DIRECTORATE: "Diretoria",
-  SECTOR: "Setor",
-  MANAGEMENT: "Gerência",
-};
-
 export function OrganogramaProvider({
   children,
 }: {
@@ -60,8 +56,8 @@ export function OrganogramaProvider({
         ...prev,
         {
           id: CEO_ID,
-          name: "CEO",
-          description: "Chief Executive Officer",
+          name: "Diretoria Gerencial",
+          description: "Diretoria Gerencial da Organização",
           type: "CEO",
           activities: [],
           children: [],
@@ -79,8 +75,8 @@ export function OrganogramaProvider({
       // Create CEO if it doesn't exist (shouldn't happen due to the useEffect above)
       const newCEO: Department = {
         id: CEO_ID,
-        name: "CEO",
-        description: "Chief Executive Officer",
+        name: "Diretoria Gerencial",
+        description: "Diretoria Gerencial da Organização",
         type: "CEO",
         activities: [],
         children: [],
@@ -118,6 +114,61 @@ export function OrganogramaProvider({
     }
 
     return null;
+  };
+
+  // Function to find an activity by ID
+  const findActivityById = (id: string): Activity | null => {
+    let foundActivity: Activity | null = null;
+
+    const searchInDepartment = (departmentList: Department[]) => {
+      for (const dept of departmentList) {
+        // Search in this department's activities
+        const activity = dept.activities.find((act) => act.id === id);
+        if (activity) {
+          foundActivity = activity;
+          return true;
+        }
+
+        // Search in children departments
+        if (dept.children && dept.children.length > 0) {
+          if (searchInDepartment(dept.children)) {
+            return true;
+          }
+        }
+      }
+      return false;
+    };
+
+    searchInDepartment(departments);
+    return foundActivity;
+  };
+
+  // Function to find the department that contains a specific activity
+  const findDepartmentByActivityId = (
+    activityId: string
+  ): Department | null => {
+    let foundDepartment: Department | null = null;
+
+    const searchInDepartment = (departmentList: Department[]) => {
+      for (const dept of departmentList) {
+        // Check if this department has the activity
+        if (dept.activities.some((act) => act.id === activityId)) {
+          foundDepartment = dept;
+          return true;
+        }
+
+        // Search in children departments
+        if (dept.children && dept.children.length > 0) {
+          if (searchInDepartment(dept.children)) {
+            return true;
+          }
+        }
+      }
+      return false;
+    };
+
+    searchInDepartment(departments);
+    return foundDepartment;
   };
 
   // Function to find the path to a department (list of parent departments)
@@ -254,7 +305,7 @@ export function OrganogramaProvider({
     }
 
     toast({
-      title: "Departamento adicionado",
+      title: "Item adicionado",
       description: `${departmentTypeLabel[newDepartment.type]}: "${
         newDepartment.name
       }" foi adicionado com sucesso.`,
@@ -322,8 +373,8 @@ export function OrganogramaProvider({
         if (!ceoExists) {
           data.push({
             id: CEO_ID,
-            name: "CEO",
-            description: "Chief Executive Officer",
+            name: "Diretoria Gerencial",
+            description: "Diretoria Gerencial da Organização",
             type: "CEO",
             activities: [],
             children: [],
@@ -341,8 +392,8 @@ export function OrganogramaProvider({
         setDepartments([
           {
             id: CEO_ID,
-            name: "CEO",
-            description: "Chief Executive Officer",
+            name: "Diretoria Gerencial",
+            description: "Diretoria Gerencial da Organização",
             type: "CEO",
             activities: [],
             children: [],
@@ -362,8 +413,8 @@ export function OrganogramaProvider({
       setDepartments([
         {
           id: CEO_ID,
-          name: "CEO",
-          description: "Chief Executive Officer",
+          name: "Diretoria Gerencial",
+          description: "Diretoria Gerencial da Organização",
           type: "CEO",
           activities: [],
           children: [],
@@ -407,6 +458,8 @@ export function OrganogramaProvider({
         saveData,
         findDepartmentById,
         findDepartmentPath,
+        findActivityById,
+        findDepartmentByActivityId,
         listAllDepartments,
         listDepartmentsByType,
         getCEO,
