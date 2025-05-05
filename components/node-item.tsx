@@ -9,6 +9,7 @@ interface NodeItemProps {
   onClick?: () => void;
   level: 1 | 2 | 3;
   isLeaf?: boolean;
+  isCEO?: boolean;
 }
 
 export default function NodeItem({
@@ -18,6 +19,7 @@ export default function NodeItem({
   onClick,
   level,
   isLeaf = false,
+  isCEO = false,
 }: NodeItemProps) {
   // Configurações de estilo baseadas no nível
   const getLevelStyles = () => {
@@ -45,7 +47,7 @@ export default function NodeItem({
 
   return (
     <div
-      className={`flex items-start border rounded-md p-3 transition-colors ${
+      className={`flex items-center border rounded-md p-3 transition-colors ${
         styles.container
       } ${onClick ? "cursor-pointer" : ""}`}
       onClick={onClick}
@@ -59,7 +61,7 @@ export default function NodeItem({
           )}
         </div>
       )}
-      <div className="flex-1">
+      <div className={`flex ${isCEO ? "font-bold" : ""}`}>
         <div className={`${styles.text}`}>{label}</div>
       </div>
     </div>
