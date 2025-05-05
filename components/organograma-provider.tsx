@@ -56,8 +56,7 @@ export function OrganogramaProvider({
         ...prev,
         {
           id: CEO_ID,
-          name: "Diretoria Gerencial",
-          description: "Diretoria Gerencial da Organização",
+          name: "CEO",
           type: "CEO",
           activities: [],
           children: [],
@@ -75,8 +74,8 @@ export function OrganogramaProvider({
       // Create CEO if it doesn't exist (shouldn't happen due to the useEffect above)
       const newCEO: Department = {
         id: CEO_ID,
-        name: "Diretoria Gerencial",
-        description: "Diretoria Gerencial da Organização",
+        name: "CEO",
+        description: "",
         type: "CEO",
         activities: [],
         children: [],
@@ -373,8 +372,8 @@ export function OrganogramaProvider({
         if (!ceoExists) {
           data.push({
             id: CEO_ID,
-            name: "Diretoria Gerencial",
-            description: "Diretoria Gerencial da Organização",
+            name: "CEO",
+            description: "",
             type: "CEO",
             activities: [],
             children: [],
@@ -392,8 +391,8 @@ export function OrganogramaProvider({
         setDepartments([
           {
             id: CEO_ID,
-            name: "Diretoria Gerencial",
-            description: "Diretoria Gerencial da Organização",
+            name: "CEO",
+            description: "",
             type: "CEO",
             activities: [],
             children: [],
@@ -413,8 +412,8 @@ export function OrganogramaProvider({
       setDepartments([
         {
           id: CEO_ID,
-          name: "Diretoria Gerencial",
-          description: "Diretoria Gerencial da Organização",
+          name: "CEO",
+          description: "",
           type: "CEO",
           activities: [],
           children: [],

@@ -61,11 +61,6 @@ export default function NodeItem({
       )}
       <div className="flex-1">
         <div className={`${styles.text}`}>{label}</div>
-        {description && (
-          <div className="text-xs text-muted-foreground mt-1">
-            {description}
-          </div>
-        )}
       </div>
     </div>
   );
